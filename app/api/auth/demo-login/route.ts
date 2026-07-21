@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
       user = await Users.update(user.id, { role });
     }
     if (!user) throw new Error('Failed to create user');
+    // For the admin, the seed user has a fixed id; we sign in by email and
+    // the cookie holds that fixed id. Container-to-container requests resolve
+    // because the seed recreates the same id.
     const signed = await signInDemo(user.email, user.name);
     return jsonOk({ user: signed, worker: await Workers.getByUserId(signed.id) });
   } catch (err) {

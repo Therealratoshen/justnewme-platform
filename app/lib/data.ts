@@ -393,6 +393,8 @@ export async function seedDevData() {
   const filbertWorkerId = ids.workerFor(FILBERT_EMAIL);
   const DEMO_USER_EMAIL = 'demo-user@example.com';
   const demoUserId = ids.userFor(DEMO_USER_EMAIL);
+  const ADMIN_EMAIL = 'admin@justnewme.dev';
+  const adminUserId = ids.userFor(ADMIN_EMAIL);
 
   // Manually insert Filbert with deterministic IDs (bypassing create() so
   // the IDs stay fixed across serverless cold starts).
@@ -454,6 +456,17 @@ export async function seedDevData() {
   };
   s.users.set(demoUserId, demoUser);
   s.emailToUserId.set(DEMO_USER_EMAIL, demoUserId);
+
+  // An admin user (for the admin dashboard demo)
+  const adminUser: User = {
+    id: adminUserId,
+    email: ADMIN_EMAIL,
+    name: 'Admin',
+    role: 'admin',
+    createdAt: new Date(0).toISOString(),
+  };
+  s.users.set(adminUserId, adminUser);
+  s.emailToUserId.set(ADMIN_EMAIL, adminUserId);
 
   // A sample problem so the worker dashboard has something to show.
   // Use a deterministic problem ID so cross-container requests on
