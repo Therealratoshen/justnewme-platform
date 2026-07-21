@@ -420,7 +420,14 @@ export async function seedDevData() {
     timezone: 'Asia/Jakarta',
     portfolioUrl: 'https://www.filberthenrico.my.id',
     status: 'active',
-    stripeOnboardingComplete: false,
+    // Seed him as onboarding-complete so the demo can immediately claim
+    // problems. The onboarding page is still available to walk through the
+    // real flow when STRIPE_SECRET_KEY is set.
+    stripeOnboardingComplete: process.env.JUSTNEWME_DEMO_MODE !== 'false' && !process.env.STRIPE_SECRET_KEY,
+    // Use a deterministic mock account ID for demo so cross-container requests
+    // resolve to the same account.
+    stripeAccountId: (process.env.JUSTNEWME_DEMO_MODE !== 'false' && !process.env.STRIPE_SECRET_KEY)
+      ? 'acct_demo_filbert' : undefined,
     rating: 0,
     ratingCount: 0,
     completedSessions: 0,

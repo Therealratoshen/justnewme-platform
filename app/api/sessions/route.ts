@@ -9,6 +9,7 @@ import { Problems, Sessions, Workers, Events, Users } from '@/app/lib/data';
 import { requireWorker } from '@/app/lib/auth';
 import { errorResponse, jsonOk, parseJson, HttpError } from '@/app/lib/http';
 import { notify } from '@/app/lib/notifications';
+import { IS_DEMO_MODE } from '@/app/lib/stripe';
 
 const ClaimInputSchema = z.object({
   problemId: z.string(),
@@ -20,7 +21,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireWorker();
     const worker = session.worker!;
-    if (!worker.stripeOnboardingComplete) {
+    // In demo mode, skip the onboarding check. The mock account is
+    // auto-ready for claiming.
+    if (!IS_DEMO_MODE && !worker.stripeOnboardingComplete) {
       throw new HttpError(412, 'onboarding_required', 'Complete Stripe Connect onboarding first.', {
         onboardingUrl: '/workers/onboarding',
       });

@@ -133,6 +133,9 @@ export function markDemoAccountReady(accountId: string): boolean {
  */
 export async function isConnectAccountReady(accountId: string): Promise<boolean> {
   if (DEMO_MODE) {
+    // In demo mode, any account that ends in _demo is considered ready.
+    // Otherwise check the mock store.
+    if (accountId.endsWith('_demo')) return true;
     return getMockStore().accounts.get(accountId)?.ready ?? false;
   }
   const stripe = getStripe();
