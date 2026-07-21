@@ -142,6 +142,25 @@ The things you'd need to swap before going live:
 - [ ] **Identity verification** for workers — Stripe Identity on signup
 - [ ] **Real-time messaging** — replace 5s polling in `SessionChat` with WebSockets or Pusher
 
+### Important: serverless state
+
+The in-memory store works perfectly on a single Node process (your dev server,
+or a long-running server). On Vercel serverless, each cold start gets a fresh
+store, so state doesn't persist between **different** serverless invocations.
+This means:
+
+- The full flow works inside a single warm container (~5 min idle window).
+- Sessions created in container A aren't visible in container B.
+
+For production on Vercel, **add a real database** — the recommended path is
+[Vercel KV](https://vercel.com/docs/storage/vercel-kv) (Redis). Drop the same
+`get/set/del` interface over it and the rest of the app keeps working.
+
+The seed data (Filbert, the demo user, the admin) uses **deterministic IDs**
+so cross-container requests on the same path land on the same entity. The
+in-memory demo is enough to show the end-to-end flow; swap the store to make
+it production-grade.
+
 ## Why this is a real business
 
 The B2B version of this exact model (AI → human escalation) is a $5B+ market. Sierra, Decagon, Intercom Fin, Salesforce Agentforce, and Microsoft Copilot Studio all have it. **Consumer/prosumer is wide open.**
