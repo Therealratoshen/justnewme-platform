@@ -18,8 +18,11 @@ export async function POST(req: NextRequest) {
     const role = body.role ?? 'end_user';
 
     if (!email) {
-      // Default: log in as Filbert (the founding worker) for the demo
-      const filbert = (await Users.list()).find((u) => u.email === 'filbert@filberthenrico.my.id');
+      // Default: log in as Filbert (the founding worker) for the demo.
+      // Use the deterministic ID so cross-container requests on serverless
+      // resolve to the same worker.
+      const filbertEmail = 'filbert@filberthenrico.my.id';
+      const filbert = (await Users.list()).find((u) => u.email === filbertEmail);
       if (!filbert) {
         return errorResponse(new Error('Seed data missing — POST a problem first.'));
       }

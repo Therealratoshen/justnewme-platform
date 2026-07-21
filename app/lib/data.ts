@@ -66,6 +66,21 @@ function randomId(prefix: string, len = 12): string {
   return `${prefix}_${out}`;
 }
 
+/**
+ * Deterministic ID for a given string. Used so seeded entities (Filbert)
+ * get the same ID across serverless cold starts. The cookie that the
+ * demo-login sets for Filbert is therefore stable across requests that
+ * hit different containers.
+ */
+function deterministicId(prefix: string, seed: string, len = 10): string {
+  // Simple hash → lowercase hex of desired length.
+  let h = 5381;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) + h + seed.charCodeAt(i)) | 0;
+  const hex = (h >>> 0).toString(16).padStart(8, '0');
+  const padded = (hex + hex + hex).slice(0, len);
+  return `${prefix}_${padded}`;
+}
+
 export const ids = {
   user: () => randomId('usr', 10),
   worker: () => randomId('wrk', 10),
@@ -74,6 +89,10 @@ export const ids = {
   message: () => randomId('msg', 12),
   event: () => randomId('evt', 10),
   notification: () => randomId('ntf', 10),
+  // Deterministic helpers — used for seed data so cross-container
+  // requests resolve to the same entity.
+  userFor: (seed: string) => deterministicId('usr', seed, 10),
+  workerFor: (seed: string) => deterministicId('wrk', seed, 10),
 };
 
 // ---------- Generic CRUD ----------
@@ -366,14 +385,29 @@ export async function seedDevData() {
 
   if ((await Workers.list()).length > 0) return; // already seeded
 
-  const filbertUser = await Users.create({
-    email: 'filbert@filberthenrico.my.id',
+  // Use deterministic IDs so cross-container requests on serverless
+  // resolve to the same entity.
+  const FILBERT_EMAIL = 'filbert@filberthenrico.my.id';
+  const filbertUserId = ids.userFor(FILBERT_EMAIL);
+  const filbertWorkerId = ids.workerFor(FILBERT_EMAIL);
+  const DEMO_USER_EMAIL = 'demo-user@example.com';
+  const demoUserId = ids.userFor(DEMO_USER_EMAIL);
+
+  // Manually insert Filbert with deterministic IDs (bypassing create() so
+  // the IDs stay fixed across serverless cold starts).
+  const filbertUser: User = {
+    id: filbertUserId,
+    email: FILBERT_EMAIL,
     name: 'Filbert Henrico',
     role: 'worker',
-  });
+    createdAt: new Date(0).toISOString(), // fixed timestamp
+  };
+  s.users.set(filbertUserId, filbertUser);
+  s.emailToUserId.set(FILBERT_EMAIL, filbertUserId);
 
-  await Workers.create({
-    userId: filbertUser.id,
+  const filbertWorker: Worker = {
+    id: filbertWorkerId,
+    userId: filbertUserId,
     displayName: 'Filbert Henrico',
     headline: 'AI strategy for fintechs in SEA · 7 yrs · 50+ integrations',
     bio: 'I help fintechs in Southeast Asia build agentic AI systems that ship to production. From strategy to API integration to compliance. Currently Technical Customer Success Lead at Finetiks.',
@@ -386,22 +420,39 @@ export async function seedDevData() {
     timezone: 'Asia/Jakarta',
     portfolioUrl: 'https://www.filberthenrico.my.id',
     status: 'active',
-    stripeAccountId: undefined,
-    verifiedAt: new Date().toISOString(),
-  });
+    stripeOnboardingComplete: false,
+    rating: 0,
+    ratingCount: 0,
+    completedSessions: 0,
+    responseTimeMinutes: 0,
+    completionRate: 0,
+    disputeRate: 0,
+    repeatClientRate: 0,
+    totalEarningsCents: 0,
+    createdAt: new Date(0).toISOString(),
+    verifiedAt: new Date(0).toISOString(),
+  };
+  s.workers.set(filbertWorkerId, filbertWorker);
+  s.userIdToWorkerId.set(filbertUserId, filbertWorkerId);
 
   // A sample end user
-  await Users.create({
-    email: 'demo-user@example.com',
+  const demoUser: User = {
+    id: demoUserId,
+    email: DEMO_USER_EMAIL,
     name: 'Demo User',
     role: 'end_user',
+    createdAt: new Date(0).toISOString(),
     agentContext: { source: 'claude' },
-  });
+  };
+  s.users.set(demoUserId, demoUser);
+  s.emailToUserId.set(DEMO_USER_EMAIL, demoUserId);
 
-  // A sample problem so the worker dashboard has something to show
-  const demoUser = (await Users.list()).find((u) => u.role === 'end_user')!;
-  await Problems.create({
-    postedByUserId: demoUser.id,
+  // A sample problem so the worker dashboard has something to show.
+  // We need a deterministic problem ID too so the dashboard can reference it.
+  const problemId = ids.problem(); // OK to be random — it's a fresh seed
+  const problem: Problem = {
+    id: problemId,
+    postedByUserId: demoUserId,
     title: 'AI strategy for Indonesian neobank',
     description: 'We are a Series A neobank in Jakarta. We want to add AI to our customer onboarding and fraud detection. Need a 90-day roadmap with budget estimate. Currently using GPT-4 for some support tickets but want a proper strategy.',
     category: 'strategy',
@@ -411,11 +462,15 @@ export async function seedDevData() {
     aiAgentContext: {
       source: 'claude',
       chatTranscript: [
-        { role: 'user', content: 'I run a Series A neobank in Jakarta and we want to add AI. Can you help?', ts: new Date().toISOString() },
-        { role: 'assistant', content: 'I can outline some ideas, but for a real strategy you should talk to a fintech AI expert. Want me to post this to JustNewMe?', ts: new Date().toISOString() },
-        { role: 'user', content: 'Yes, post it. Budget around $300.', ts: new Date().toISOString() },
+        { role: 'user', content: 'I run a Series A neobank in Jakarta and we want to add AI. Can you help?', ts: new Date(0).toISOString() },
+        { role: 'assistant', content: 'I can outline some ideas, but for a real strategy you should talk to a fintech AI expert. Want me to post this to JustNewMe?', ts: new Date(0).toISOString() },
+        { role: 'user', content: 'Yes, post it. Budget around $300.', ts: new Date(0).toISOString() },
       ],
     },
     suggestedPriceCents: 30000,
-  });
+    status: 'open',
+    createdAt: new Date(0).toISOString(),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  s.problems.set(problemId, problem);
 }
