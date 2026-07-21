@@ -93,6 +93,7 @@ export const ids = {
   // requests resolve to the same entity.
   userFor: (seed: string) => deterministicId('usr', seed, 10),
   workerFor: (seed: string) => deterministicId('wrk', seed, 10),
+  problemFor: (seed: string) => deterministicId('prob', seed, 10),
 };
 
 // ---------- Generic CRUD ----------
@@ -455,8 +456,9 @@ export async function seedDevData() {
   s.emailToUserId.set(DEMO_USER_EMAIL, demoUserId);
 
   // A sample problem so the worker dashboard has something to show.
-  // We need a deterministic problem ID too so the dashboard can reference it.
-  const problemId = ids.problem(); // OK to be random — it's a fresh seed
+  // Use a deterministic problem ID so cross-container requests on
+  // serverless resolve to the same problem.
+  const problemId = ids.problemFor('seed-neobank-ai-strategy');
   const problem: Problem = {
     id: problemId,
     postedByUserId: demoUserId,
